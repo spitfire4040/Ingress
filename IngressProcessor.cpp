@@ -9,6 +9,7 @@
 #include <vector>
 #include <set>
 #include <algorithm>
+#include <time.h>
 
 using namespace std;
 
@@ -25,12 +26,14 @@ bool compareNetwork(net &a, net &b);
 
 bool Binary_Search(const vector<int> &numbers, int value);
 
+int getFileSize(const string &inputFileName);
+
 int main()
 {
 	// initialize variables
 	ifstream fin1, fin2, fin3;
 	ofstream fout1, fout2, fout3;
-	string temp, token, newNet, item, target;
+	string temp, token, delimiter, newNet, item, target, dir, inputFileName, line, src;
 	long int network;
 	char i;
 	int range, num, counter = 0;
@@ -46,11 +49,14 @@ int main()
 	// initialize vector to hold subnet values
 	vector<string> tempVect;
 
-	// define directory
-    string dir = "/home/jay/Ingress/as-list";
+    // initialize vector to hold traces
+    vector<string> traceVect;    
 
     // initialize vector to hold file names
     vector<string> files = vector<string>();
+
+    // define directory
+    dir = "/home/jay/Ingress/as-list";
 
     // call function to get file names
     getdir(dir,files);
@@ -105,10 +111,53 @@ int main()
         }
     }
 
-    for (int i = 0; i < subnetMap.size(); i++)
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // iterate through all input files
+    for (int x = 1; x < 2; x++)
     {
-        cout << subnetMap[i].network << ' ' << subnetMap[i].range << endl;	
+        // open data files for read
+        fin2.open("/home/jay/M-Lab/Mlab/april_" + to_string(x) + "_unique_trace");
+
+        // load each line into temp vector and process
+        while (getline(fin2, temp))
+        {
+            ss << temp;
+
+            while (getline(ss, token, ' '))
+            {
+                traceVect.push_back(token);
+            }
+
+            temp = traceVect[0];
+            delimiter = ':';
+            src = temp.substr(0, temp.find(delimiter));
+            cout << src << endl;
+
+            for (int i = 1; i < traceVect.size(); i++)
+                cout << traceVect[i] + ' ';
+            cout << endl;
+
+
+            traceVect.clear();
+            ss.clear();
+
+        }
+
+        fin2.close();
+
     }
+
+
+    // take addresses one at a time and compare to subnet
+
+    // if address in subnet add src address to vantage point list for that AS
+
+    // get hop number of first address that matches for distance
+
+    // get remaining addresses in list for visibility in that AS
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	return 0;
 }
@@ -192,4 +241,22 @@ else
 
 return 0;
 
+}
+
+
+// get file size
+int getFileSize(const string &inputFileName)
+{
+    ifstream file(inputFileName.c_str(), ifstream::in | ifstream::binary);
+
+    if (!file.is_open())
+    {
+        return -1;
+    }
+
+    file.seekg(0, ios::end);
+    int fileSize = file.tellg();
+    file.close();
+
+    return fileSize;
 }
