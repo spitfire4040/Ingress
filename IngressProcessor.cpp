@@ -10,6 +10,9 @@
 #include <set>
 #include <algorithm>
 #include <time.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 using namespace std;
 
@@ -20,25 +23,38 @@ struct net
 	string as;
 };
 
+union iptolint
+{
+    char ip[16];
+    unsigned long int addr;
+};
+
+struct sockaddr_in intIP;
+
 int getdir (string dir, vector<string> &files);
 
 bool compareNetwork(net &a, net &b);
 
-bool Binary_Search(const vector<int> &numbers, int value);
+bool Binary_Search(const vector< int> &my_numbers, int key);
 
-int getFileSize(const string &inputFileName);
+unsigned long int conv(char []);
+
+uint32_t get_mask( const int mask_length);
 
 int main()
 {
 	// initialize variables
 	ifstream fin1, fin2, fin3;
 	ofstream fout1, fout2, fout3;
-	string temp, token, delimiter, newNet, item, target, dir, inputFileName, line, src;
-	long int network;
+	string temp, token, delimiter, newNet, item, target, dir, inputFileName, line, src, ip;
+	uint32_t network, mask;
 	char i;
-	int range, num, counter = 0;
+	int range, num, hop, counter = 0;
 	net tempnet;
-	bool flag;
+	bool flag = true, matchflag = false, result;
+
+    // struct to convert ip to int
+    union iptolint ipl;
 
 	// initialize stringstream object
 	stringstream ss;
@@ -56,7 +72,7 @@ int main()
     vector<string> files = vector<string>();
 
     // define directory
-    dir = "/home/jay/Ingress/as-list";
+    dir = "/home/jay/Ingress/as-list-test";
 
     // call function to get file names
     getdir(dir,files);
@@ -90,8 +106,6 @@ int main()
     // sort subnetMap based on network rank
     sort (subnetMap.begin(), subnetMap.end(), compareNetwork);
 
-    flag = true;
-
     while (flag == true)
     {
         for (int i = 0; i < subnetMap.size(); i++)
@@ -109,9 +123,11 @@ int main()
                 flag = true;
             }
         }
+        for (int j = 0; j < subnetMap.size(); j++)
+        {
+            cout << subnetMap[j].network << ' ' << subnetMap[j].range << endl;
+        }
     }
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // iterate through all input files
     for (int x = 1; x < 2; x++)
@@ -119,46 +135,86 @@ int main()
         // open data files for read
         fin2.open("/home/jay/M-Lab/Mlab/april_" + to_string(x) + "_unique_trace");
 
-        // load each line into temp vector and process
+        // read each line from file
         while (getline(fin2, temp))
         {
+            // push line to string stream
             ss << temp;
 
+            // read from string stream and parse tokens using delimiter
             while (getline(ss, token, ' '))
             {
+                // push each token to tempVect
                 traceVect.push_back(token);
             }
 
+            // take first element of vector, parse using delimiter, and take first part (src)
             temp = traceVect[0];
+
+            // set delimiter
             delimiter = ':';
+
+            // partition string and get src
             src = temp.substr(0, temp.find(delimiter));
-            cout << src << endl;
 
+            // set match flag
+            matchflag = false;
+
+            // iterate through the rest of trace string
             for (int i = 1; i < traceVect.size(); i++)
-                cout << traceVect[i] + ' ';
-            cout << endl;
+            {
+                // take subsequent elements and parse at delimiter (addresses)
+                temp = traceVect[i];
+
+                // set delimiter
+                delimiter = '-';
+
+                // partition string and get ip
+                ip = temp.substr(0, temp.find(delimiter));
+
+                // set hop = current iteration
+                hop = i;
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                // get subnet mask
+                //mask = get_mask()
+
+                // initialize stringstream object
+                stringstream ss;
+
+                // read ip into stringstream
+                ss << ip;
+
+                // stream into array ipl.ip
+                ss >> ipl.ip;
+
+                // convert ipl.ip into an integer
+                ipl.addr = conv(ipl.ip);
+
+                // print integer for testing
+                cout << ipl.addr << endl;
+
+                // search data structure for match
+
+                // if match
+
+                    //save src-distance in AS vantage point file
+
+                    // save all other matching ips as visibility in AS file
 
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            }
+
+            // clear vector and stringstream each time
             traceVect.clear();
             ss.clear();
-
         }
 
+        // close data file
         fin2.close();
-
     }
 
-
-    // take addresses one at a time and compare to subnet
-
-    // if address in subnet add src address to vantage point list for that AS
-
-    // get hop number of first address that matches for distance
-
-    // get remaining addresses in list for visibility in that AS
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+    // end program
 	return 0;
 }
 
@@ -192,71 +248,55 @@ bool compareNetwork(net &a, net &b)
 }
 
 
-
-/*
-int main() {
-   
-vector <int>my_numbers;
-bool result;
-int key;
-  
-for (int i = 0; i < 20; i++)
-    {
-        my_numbers.push_back(i);
-    }
-
-    cout << "enter number for search: ";
-    cin >> key;
-
-    result = Binary_Search(my_numbers, key);
-
-    if (result == true)
-    {
-        cout << "found" << endl;
-    }
-    else
-    {
-        cout << "not found" << endl;
-    }
-
-return 0;
-}
-*/
-
-bool Binary_Search(const vector< int> &my_numbers, int key) {
-
-int iteration = 0, left = 0, right = my_numbers.size()-1, mid;
-
-while (left <= right) {
-    iteration++;
-    mid = (int) ((left + right) / 2);
-    if (key == my_numbers[mid]) {
-        return 1;
-    }
-else if (key > my_numbers[mid])
-    left = mid + 1;
-else
-    right = mid - 1;
-}
-
-return 0;
-
-}
-
-
-// get file size
-int getFileSize(const string &inputFileName)
+bool Binary_Search(const vector< int> &my_numbers, int key)
 {
-    ifstream file(inputFileName.c_str(), ifstream::in | ifstream::binary);
+    int iteration = 0, left = 0, right = my_numbers.size()-1, mid;
 
-    if (!file.is_open())
+    while (left <= right)
     {
-        return -1;
+        iteration++;
+        mid = (int) ((left + right) / 2);
+
+        if (key == my_numbers[mid])
+        {
+            return 1;
+        }
+
+        else if (key > my_numbers[mid])
+        {
+            left = mid + 1;
+        }
+
+        else
+        {
+            right = mid - 1;
+        }
     }
 
-    file.seekg(0, ios::end);
-    int fileSize = file.tellg();
-    file.close();
+return 0;
+}
 
-    return fileSize;
+
+unsigned long int conv(char ipadr[])
+{
+    unsigned long int num=0,val;
+    char *tok,*ptr;
+    tok=strtok(ipadr,".");
+    while( tok != NULL)
+    {
+        val=strtoul(tok,&ptr,0);
+        num=(num << 8) + val;
+        tok=strtok(NULL,".");
+    }
+    return(num);
+}
+
+
+uint32_t get_mask( const int mask_length)
+{
+    if( mask_length > 31)
+    {
+        return 0xffffffff;
+    }
+    return (1 << (mask_length + 1)) - 1;
 }
